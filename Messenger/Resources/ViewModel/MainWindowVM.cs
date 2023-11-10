@@ -24,17 +24,27 @@ public partial class MainWindowVm : ObservableObject
 
     public MainWindowVm()
     {
-        SettingsVm.GetInstance().UserChange += (user, added) =>
+        SettingsVm.GetInstance().UserChange += (user, serverInfo, added) =>
         {
             Application.Current.Dispatcher.BeginInvoke(
                 new Action(() =>
                 {
                     if (added)
+                    {
                         OnlineUsers.Add(user);
+                        _chatVMs.Add(new ChatVM(user, SettingsVm.GetInstance()));
+                    }
                     else
+                    {
                         for (int i = 0; i < OnlineUsers.Count; i++)
-                            if (OnlineUsers[i].Id == user.Id)
+                            if (OnlineUsers[i].Id.Equals(user.Id))
                                 OnlineUsers.RemoveAt(i);
+
+                        for (int i = 0; i < _chatVMs.Count; i++)
+                            if (_chatVMs[i].User.Id.Equals(user.Id))
+                                _chatVMs.RemoveAt(i);
+                    }
+                        
                 })
             );
         };
@@ -68,24 +78,15 @@ public partial class MainWindowVm : ObservableObject
     private void OpenUser(object param)
     {
         UserInfo user = UserInfo.Parse(param.ToString());
-        bool find = false;
 
         foreach (ChatVM chatVm in _chatVMs)
         {
             if (chatVm.User.Id.Equals(user.Id))
             {
                 _chatPage.DataContext = chatVm;
-                find = true;
+                CurrentPage = _chatPage;
+                return;
             }
         }
-
-        if (!find)
-        {
-            ChatVM newVm = new ChatVM(user);
-            _chatPage.DataContext = newVm;
-            _chatVMs.Add(newVm);
-        }
-
-        CurrentPage = _chatPage;
     }
 }

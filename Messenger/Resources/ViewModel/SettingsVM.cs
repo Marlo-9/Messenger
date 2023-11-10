@@ -53,7 +53,7 @@ public partial class SettingsVm : ObservableObject
     
     private ServerObject? _server = null;
     
-    public delegate void UserCountChange(UserInfo user, bool isAdded = true);
+    public delegate void UserCountChange(UserInfo user, ServerInfo? serverInfo, bool isAdded = true);
     public event UserCountChange UserChange;
     
     public delegate void RemoveConnect();
@@ -206,7 +206,12 @@ public partial class SettingsVm : ObservableObject
         
         return true;
     }
-    
+
+    public async void SendMessage(Message message)
+    {
+        await Writer?.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.Message, message.ToString()))!;
+        await Writer?.FlushAsync()!;
+    }
 
     [RelayCommand]
     private async void StartStopServer(object obj)
@@ -404,16 +409,16 @@ public partial class SettingsVm : ObservableObject
                     switch (messageType)
                     {
                         case MessageType.NewClient:
-                            UserChange?.Invoke(UserInfo.Parse(message));
+                            UserChange?.Invoke(UserInfo.Parse(message), serverInfo);
                             break;
                         case MessageType.RemoveClient:
-                            UserChange?.Invoke(UserInfo.Parse(message), false);
+                            UserChange?.Invoke(UserInfo.Parse(message), null, false);
                             break;
                         case MessageType.SetClientId:
                             User.Id = UserInfo.Parse(message).Id;
                             break;
                         default:
-                            Console.WriteLine(message);
+                            Console.WriteLine("Message: " + message);
                             break;
                     }
                 }

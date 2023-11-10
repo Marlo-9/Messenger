@@ -13,6 +13,8 @@ class ClientObject
     protected internal string Id { get; } = Guid.NewGuid().ToString();
     protected internal StreamWriter Writer { get;}
     protected internal StreamReader Reader { get;}
+
+    private string? _chatId;
  
     TcpClient client;
     ServerObject server;
@@ -56,6 +58,7 @@ class ClientObject
                     break;
                 case MessageType.UserClient:
                     User.Type = UserType.Client;
+                    _chatId = await Reader.ReadLineAsync();
                     break;
             }
             
@@ -71,22 +74,25 @@ class ClientObject
                 {
                     message = await Reader.ReadLineAsync();
                     if (message == null) continue;
-                    if (NetworkAssistance.GetMessageType(message) == MessageType.CloseConnect)
-                    {
-                        await server.ChangeUsers(User, false);
-                        
-                        server.RemoveConnection(User.Id);
-                        
-                        Close();
-                        
-                        return;
-                    }
                     
-                    message = $"{User.Name}: {message}";
-                    Console.WriteLine(message);
+                    switch (NetworkAssistance.GetMessageType(message))
+                    {
+                        case MessageType.CloseConnect:
+                            await server.ChangeUsers(User, false);
+                            server.RemoveConnection(User.Id);
+                            Close();
+                            return;
+                        case MessageType.Message:
+                            await server.BroadcastMessageAsync(User.Id, Message.Parse(message));
+                            break;
+                        default:
+                            Console.WriteLine(message);
+                            break;
+                    }
                 }
-                catch
+                catch (Exception e)
                 {
+                    Console.WriteLine(e.Message);
                     await server.ChangeUsers(User, false);
                     break;
                 }

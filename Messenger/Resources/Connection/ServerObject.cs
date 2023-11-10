@@ -61,14 +61,16 @@ class ServerObject
             Disconnect();
         }
     }
-    protected internal async Task BroadcastMessageAsync(string message, string id)
+    protected internal async Task BroadcastMessageAsync(string senderId, Message message)
     {
         foreach (var client in clients)
         {
-            if (client.Id != id) // если id клиента не равно id отправителя
+            if (client.Id == message.RecipientId)
             {
-                await client.Writer.WriteLineAsync(message); //передача данных
+                await client.Writer.WriteLineAsync(message.ToString());
                 await client.Writer.FlushAsync();
+                
+                return;
             }
         }
     }

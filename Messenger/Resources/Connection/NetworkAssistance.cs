@@ -68,39 +68,37 @@ public static class NetworkAssistance
         {
             using TcpClient client = new TcpClient();
             IPAddress checkIp = IPAddress.Parse(currentIp.Substring(0, currentIp.LastIndexOf('.') + 1) + i);
-            StreamReader? Reader = null;
-            StreamWriter? Writer = null;
+            StreamReader? reader = null;
+            StreamWriter? writer = null;
             
             Console.WriteLine(checkIp.ToString());
          
             try
             {
-                client.Connect(checkIp, port);
+                await client.ConnectAsync(checkIp, port).WaitAsync(TimeSpan.FromSeconds(2));
             
-                Reader = new StreamReader(client.GetStream());
-                Writer = new StreamWriter(client.GetStream());
-                Writer.AutoFlush = true;
+                reader = new StreamReader(client.GetStream());
+                writer = new StreamWriter(client.GetStream());
+                writer.AutoFlush = true;
+
+                await writer.WriteLineAsync(GetKey());
             
-                if (Writer is null || Reader is null) return null;
-            
-                await Writer.WriteLineAsync(GetKey());
-            
-                string? answer = await Reader.ReadLineAsync();
+                string? answer = await reader.ReadLineAsync();
                 MessageType answerType = GetMessageType(answer);
 
                 if (answerType == MessageType.Null)
                 {
-                    Writer?.Close();
-                    Reader?.Close();
+                    writer?.Close();
+                    reader?.Close();
                     throw new Exception("Un correct server answer");
                 }
                 
                 if (answerType == MessageType.SuccessConnect)
                 {
-                    await Writer.WriteLineAsync(SetMessageType(MessageType.CheckClient));
+                    await writer.WriteLineAsync(SetMessageType(MessageType.CheckClient));
                     
-                    Writer?.Close();
-                    Reader?.Close();
+                    writer?.Close();
+                    reader?.Close();
                     
                     return checkIp;
                 }
@@ -110,8 +108,8 @@ public static class NetworkAssistance
                 Console.WriteLine(ex.Message);
             }
         
-            Writer?.Close();
-            Reader?.Close();
+            writer?.Close();
+            reader?.Close();
         }
 
         return null;
@@ -130,9 +128,9 @@ public static class NetworkAssistance
             return MessageType.Null;
         
         return Enum.Parse<MessageType>(message.Substring(1, message.IndexOf('}') - 1));
-    } 
+    }
     
-    public static async Task ConnectAsync(this TcpClient tcpClient, string host, int port, CancellationToken cancellationToken) {
+    public static async Task ConnectAsync(this TcpClient tcpClient, string? host, int port, CancellationToken cancellationToken) {
         if (tcpClient == null) {
             throw new ArgumentNullException(nameof(tcpClient));
         }
@@ -161,7 +159,7 @@ public static class NetworkAssistance
         }
     }
     
-    public static async Task<T> RunTask<T>(Task<T> task, int timeout = 0, CancellationToken cancellationToken = default)
+    /*public static async Task<T> RunTask<T>(Task<T> task, int timeout = 0, CancellationToken cancellationToken = default)
     {
         await RunTask((Task)task, timeout, cancellationToken);
         return await task;
@@ -179,7 +177,7 @@ public static class NetworkAssistance
             throw new TimeoutException();
 
         await task;
-    }
+    }*/
 }
 
 public enum MessageType
@@ -193,5 +191,6 @@ public enum MessageType
     RemoveClient,
     SetClientId,
     SuccessConnect,
-    CloseConnect
+    CloseConnect,
+    Message,
 }
