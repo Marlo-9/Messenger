@@ -25,6 +25,7 @@
                   Height="auto"
                   VerticalAlignment="Bottom"
                   Focusable="False"
+                  ItemsSource="{Binding Messages, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                   ScrollViewer.CanContentScroll="False">
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
@@ -39,10 +40,12 @@
             </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <ui:Card Width="auto"
-                             MaxWidth="500"
-                             Padding="6,6,8,6"
-                             HorizontalAlignment="Left">
+                    <ui:Button Width="auto"
+                               MaxWidth="500"
+                               Padding="6,6,8,6"
+                               HorizontalAlignment="Left"
+                               IsHitTestVisible="False"
+                               Appearance="{Binding ControlAppearance, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -54,7 +57,7 @@
                                           Margin="0,0,0,6"
                                           FontSize="16"
                                           TextWrapping="Wrap"
-                                          Text="{Binding MessageText}" />
+                                          Text="{Binding Text}" />
 
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
@@ -102,7 +105,7 @@
 
                             </Grid>
                         </Grid>
-                    </ui:Card>
+                    </ui:Button>
                 </DataTemplate>
             </ListView.ItemTemplate>
         </ListView>

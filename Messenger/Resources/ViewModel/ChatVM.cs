@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Messenger.Resources.Connection;
-using Messenger.Resources.Data;
+using Messenger.Resources.Tools.Connection;
+using Messenger.Resources.Tools.Data;
 using Wpf.Ui.Controls;
 
 namespace Messenger.Resources.ViewModel;
@@ -27,15 +27,27 @@ public partial class ChatVM : ObservableObject
     {
         User = userRecipient;
         _settingsVm = settingsVm;
+        _settingsVm.NewMessage += message =>
+        {
+            if (!_settingsVm.User.Id.Equals(message.RecipientId)) return;
+
+            message.ControlAppearance = ControlAppearance.Secondary;
+            
+            Application.Current.Dispatcher.BeginInvoke(
+                new Action(() => Messages.Add(message))
+            );
+        };
     }
 
     [RelayCommand]
     private void SendMessage(object obj)
     {
         TextBox senderTextBox = obj as TextBox;
+        Message message = new Message(_user.Id, senderTextBox.Text);
         
-        _settingsVm.SendMessage(new Message(_user.Id, senderTextBox.Text));
-
+        _settingsVm.SendMessage(message);
+        message.ControlAppearance = ControlAppearance.Primary;
+        Messages.Add(message);
         senderTextBox.Text = "";
     }
 

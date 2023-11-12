@@ -5,7 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Wpf.Ui.Controls;
 using TextBlock = Wpf.Ui.Controls.TextBlock;
 
-namespace Messenger.Resources.Data;
+namespace Messenger.Resources.Tools.Data;
 
 public partial class Message : ObservableObject
 {
@@ -13,6 +13,7 @@ public partial class Message : ObservableObject
     [ObservableProperty] private string _recipientId;
     [ObservableProperty] private DateTime _sendTime;
     [ObservableProperty] private MessageStatus _sendStatus;
+    [ObservableProperty] private ControlAppearance _controlAppearance;
 
     public string Id { get; } = Guid.NewGuid().ToString();
     public static string Title = "Message"; 

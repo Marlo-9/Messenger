@@ -1,6 +1,6 @@
 ﻿using System.Net;
 
-namespace Messenger.Resources.Data;
+namespace Messenger.Resources.Tools.Data;
 
 public class ServerInfo
 {

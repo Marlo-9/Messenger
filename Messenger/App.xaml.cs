@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using Messenger.Resources.ViewModel;
 using Messenger.Resources.View;
+using Messenger.Resources.Tools.Additional;
+
 
 namespace Messenger
 {
@@ -18,11 +14,13 @@ namespace Messenger
         protected override void OnStartup(StartupEventArgs e) {
             base.OnStartup(e);
             
-            MainWindowVm mainVm = new MainWindowVm();
-            MainWindow window = new MainWindow() {
+            var mainVm = new MainWindowVm();
+            var window = new MainWindow() {
                 WindowStartupLocation = WindowStartupLocation.CenterScreen,
                 DataContext = mainVm
             };
+            
+            window.Closed += (_, _) => Logging.EndSession();
             
             window.ShowDialog();
         }

@@ -13,12 +13,14 @@ using System.Windows.Documents;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Messenger.Resources.Connection;
-using Messenger.Resources.Data;
+using Messenger.Resources.Tools.Connection;
+using Messenger.Resources.Tools.Data;
+using Messenger.Resources.Tools.Enums;
 using Messenger.Resources.View;
 using Messenger.Resources.Visual;
 using Wpf.Ui;
 using Wpf.Ui.Controls;
+using static Messenger.Resources.Tools.Additional.Logging;
 
 namespace Messenger.Resources.ViewModel;
 
@@ -37,11 +39,13 @@ public partial class SettingsVm : ObservableObject
     [ObservableProperty] private bool _isEnableUserName = true;
     [ObservableProperty] private bool _isBlockServerSettings = false;
     [ObservableProperty] private bool _isServerStarted= false;
-    [ObservableProperty] private bool _isSystemClientStarted = false;
+    [ObservableProperty] private bool _isClientStarted = false;
     
     [ObservableProperty] private bool _useIpV6 = false;
     [ObservableProperty] private bool _useCustomServerSettings = false;
     [ObservableProperty] private bool _useAutoFinedServer = false;
+    
+    [ObservableProperty] private SettingsViewStatus _settingsViewStatus = SettingsViewStatus.EnableAllSettings;
     
     [ObservableProperty] private string _textServerStartButton = "Запустить сервер";
     [ObservableProperty] private SymbolIcon _iconServerStartButton = new(SymbolRegular.Play28);
@@ -53,11 +57,19 @@ public partial class SettingsVm : ObservableObject
     
     private ServerObject? _server = null;
     
-    public delegate void UserCountChange(UserInfo user, ServerInfo? serverInfo, bool isAdded = true);
-    public event UserCountChange UserChange;
+    public delegate void AddUserEventArgs(UserInfo user);
+    public event AddUserEventArgs AddUser;
+    
+    public delegate void RemoveUserEventArgs(UserInfo user);
+    public event RemoveUserEventArgs RemoveUser;
     
     public delegate void RemoveConnect();
     public event RemoveConnect LostConnect;
+    
+    public delegate void MessageR(Message message);
+    public event MessageR NewMessage;
+    
+    
 
     private static SettingsVm? _settingsVm = null;
     private TcpClient? Client = null;
@@ -73,7 +85,7 @@ public partial class SettingsVm : ObservableObject
     {
         if (Application.Current.MainWindow == null) return;
         
-        Application.Current.MainWindow.Closed += (_, _) =>
+        Application.Current.MainWindow.Closing += (_, _) =>
         {
             try
             {
@@ -81,60 +93,119 @@ public partial class SettingsVm : ObservableObject
             }
             catch (Exception e)
             {
-                Console.WriteLine(e.Message);
+                Log(e.Message);
             }
         };
+    }
+
+    partial void OnSettingsViewStatusChanging(SettingsViewStatus value)
+    {
+        switch (value)
+        {
+            case SettingsViewStatus.EnableAllSettings:
+                IsEnableUserName = true;
+                IsEnableCustomSettings = true;
+                IsEnableAutoFindServer = !UseIpV6;
+                IsEnableServerIpFiled = UseCustomServerSettings && !UseAutoFinedServer;
+                IsEnableServerFiled = UseCustomServerSettings;
+                IsEnableServerSettings = UseCustomServerSettings;
+                break;
+            case SettingsViewStatus.DisableAllSettings:
+                IsEnableUserName = false;
+                IsEnableCustomSettings = false;
+                IsEnableAutoFindServer = false;
+                IsEnableServerIpFiled = false;
+                IsEnableServerFiled = false;
+                IsEnableServerSettings = false;
+                break;
+            case SettingsViewStatus.ServerStarted:
+                IsEnableUserName = true;
+                IsEnableCustomSettings = false;
+                IsEnableAutoFindServer = false;
+                IsEnableServerIpFiled = false;
+                IsEnableServerFiled = false;
+                IsEnableServerSettings = false;
+                break;
+            case SettingsViewStatus.ClientStarted:
+                IsEnableUserName = false;
+                IsEnableCustomSettings = false;
+                IsEnableAutoFindServer = false;
+                IsEnableServerIpFiled = false;
+                IsEnableServerFiled = false;
+                IsEnableServerSettings = false;
+                break;
+            case SettingsViewStatus.AutoFindServerAndCustomSettings:
+                IsEnableUserName = true;
+                IsEnableCustomSettings = true;
+                IsEnableAutoFindServer = true;
+                IsEnableServerIpFiled = false;
+                IsEnableServerFiled = true;
+                IsEnableServerSettings = false;
+                break;
+            case SettingsViewStatus.AutoFindServer:
+                IsEnableUserName = true;
+                IsEnableCustomSettings = true;
+                IsEnableAutoFindServer = true;
+                IsEnableServerIpFiled = false;
+                IsEnableServerFiled = false;
+                IsEnableServerSettings = false;
+                break;
+            case SettingsViewStatus.CustomSettings:
+                IsEnableUserName = true;
+                IsEnableCustomSettings = true;
+                IsEnableAutoFindServer = true;
+                IsEnableServerIpFiled = true;
+                IsEnableServerFiled = true;
+                IsEnableServerSettings = true;
+                break;
+            case SettingsViewStatus.CustomSettingsAndUseIpV6:
+                IsEnableUserName = true;
+                IsEnableCustomSettings = true;
+                IsEnableAutoFindServer = false;
+                IsEnableServerIpFiled = true;
+                IsEnableServerFiled = true;
+                IsEnableServerSettings = true;
+                break;
+        }
+    }
+
+    partial void OnUseAutoFinedServerChanged(bool value)
+    {
+        if (value)
+            SettingsViewStatus = UseCustomServerSettings ? SettingsViewStatus.AutoFindServerAndCustomSettings : SettingsViewStatus.AutoFindServer;
+        else
+            SettingsViewStatus = UseCustomServerSettings ? SettingsViewStatus.CustomSettings : SettingsViewStatus.EnableAllSettings;
     }
 
     partial void OnUseCustomServerSettingsChanged(bool value)
     {
         if (value)
         {
-            IsEnableServerFiled = true;
-            IsEnableServerSettings = true;
-
-            IsEnableServerIpFiled = !UseAutoFinedServer;
+            if (UseIpV6)
+                SettingsViewStatus = SettingsViewStatus.CustomSettingsAndUseIpV6;
+            else
+                SettingsViewStatus = UseAutoFinedServer ? SettingsViewStatus.AutoFindServerAndCustomSettings : SettingsViewStatus.CustomSettings;
         }
         else
         {
-            IsEnableServerFiled = false;
-            IsEnableServerSettings = false;
-            IsEnableServerIpFiled = false;
+            SettingsViewStatus = UseAutoFinedServer ? SettingsViewStatus.AutoFindServer : SettingsViewStatus.EnableAllSettings;
         }
     }
 
-    partial void OnUseAutoFinedServerChanged(bool value)
+    partial void OnUseIpV6Changed(bool value)
     {
-        IsEnableServerIpFiled = !value;
-    }
-
-    partial void OnIsBlockServerSettingsChanged(bool value)
-    {
-        if (value)
-        {
-            IsEnableCustomSettings = false;
-            IsEnableServerFiled = false;
-            IsEnableServerIpFiled = false;
-            IsEnableServerSettings = false;
-        }
-        else
-        {
-            IsEnableCustomSettings = true;
-
-            IsEnableServerFiled = UseCustomServerSettings;
-            IsEnableServerSettings = UseCustomServerSettings;
-            IsEnableServerIpFiled = !UseAutoFinedServer && UseCustomServerSettings;
-        }
+        SettingsViewStatus = value ? SettingsViewStatus.CustomSettingsAndUseIpV6 : SettingsViewStatus.CustomSettings;
     }
 
     partial void OnIsServerStartedChanged(bool value)
     {
         if (value)
         {
-            IsBlockServerSettings = true;
             TextServerStartButton = "Остановить сервер";
             IconServerStartButton = new SymbolIcon(SymbolRegular.Stop24);
             AppearanceServerStartButton = ControlAppearance.Danger;
+
+            SettingsViewStatus = SettingsViewStatus.ServerStarted;
         }
         else
         {
@@ -143,21 +214,19 @@ public partial class SettingsVm : ObservableObject
             AppearanceServerStartButton = ControlAppearance.Primary;
             
             LostConnect?.Invoke();
-            
-            if (!IsSystemClientStarted)
-                IsBlockServerSettings = false;
+            SettingsViewStatus = SettingsViewStatus.EnableAllSettings;
         }
     }
 
-    partial void OnIsSystemClientStartedChanged(bool value)
+    partial void OnIsClientStartedChanged(bool value)
     {
-        IsEnableUserName = !value;
-        
         if (value)
         {
             TextClientStartButton = "Остановить клиента";
             IconClientStartButton = new SymbolIcon(SymbolRegular.Stop24);
             AppearanceClientStartButton = ControlAppearance.Danger;
+            
+            SettingsViewStatus = IsServerStarted ? SettingsViewStatus.DisableAllSettings : SettingsViewStatus.ServerStarted;
         }
         else
         {
@@ -166,18 +235,9 @@ public partial class SettingsVm : ObservableObject
             AppearanceClientStartButton = ControlAppearance.Secondary;
             
             LostConnect?.Invoke();
+            SettingsViewStatus = IsServerStarted ? SettingsViewStatus.ServerStarted : SettingsViewStatus.EnableAllSettings;
         }
-        
-        if (value) IsBlockServerSettings = true;
     }
-
-    partial void OnUseIpV6Changed(bool value)
-    {
-        IsEnableAutoFindServer = !value;
-
-        if (value) UseAutoFinedServer = false;
-    }
-
 
     private bool CheckValue(out ServerInfo info)
     {
@@ -273,18 +333,18 @@ public partial class SettingsVm : ObservableObject
     [RelayCommand]
     private async void StartClient(object obj)
     {
-        if (IsSystemClientStarted)
+        if (IsClientStarted)
         {
             await Writer?.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.CloseConnect))!;
             await Writer?.FlushAsync()!;
             
             Client?.Close();
             
-            IsSystemClientStarted = false;
+            IsClientStarted = false;
             return;
         }
         
-        ServerInfo serverInfo = new ServerInfo();
+        var serverInfo = new ServerInfo();
 
         if (string.IsNullOrEmpty(User.Name))
         {
@@ -332,9 +392,10 @@ public partial class SettingsVm : ObservableObject
                     // await NetworkAssistance.RunTask(Client.ConnectAsync(serverInfo.IpAddress, serverInfo.Port), cancellationToken: CancellationToken.None);
                     await NetworkAssistance.ConnectAsync(Client, serverInfo.IpAddress.ToString(), serverInfo.Port,
                         CancellationToken.None);
+                    
                     if (Application.Current.MainWindow != null)
                     {
-                        Application.Current.MainWindow.Closed += async (_, _) =>
+                        Application.Current.MainWindow.Closing += async (_, _) =>
                         {
                             try
                             {
@@ -355,7 +416,7 @@ public partial class SettingsVm : ObservableObject
                         };
                     }
                 
-                    IsSystemClientStarted = true;
+                    IsClientStarted = true;
 
                     Reader = new StreamReader(Client.GetStream());
                     Writer = new StreamWriter(Client.GetStream());
@@ -391,6 +452,8 @@ public partial class SettingsVm : ObservableObject
             await Writer.WriteLineAsync(User.Name);
             await Writer.FlushAsync();
             
+            Console.WriteLine("Connected S");
+            
             await Task.Run(()=>ReceiveMessageAsync(Reader));
         }
         
@@ -409,13 +472,16 @@ public partial class SettingsVm : ObservableObject
                     switch (messageType)
                     {
                         case MessageType.NewClient:
-                            UserChange?.Invoke(UserInfo.Parse(message), serverInfo);
+                            AddUser?.Invoke(UserInfo.Parse(message));
                             break;
                         case MessageType.RemoveClient:
-                            UserChange?.Invoke(UserInfo.Parse(message), null, false);
+                            RemoveUser?.Invoke(UserInfo.Parse(message));
                             break;
                         case MessageType.SetClientId:
                             User.Id = UserInfo.Parse(message).Id;
+                            break;
+                        case MessageType.Message:
+                            NewMessage?.Invoke(Message.Parse(message));
                             break;
                         default:
                             Console.WriteLine("Message: " + message);

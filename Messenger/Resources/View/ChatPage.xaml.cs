@@ -6,8 +6,8 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using Messenger.Resources.Connection;
-using Messenger.Resources.Data;
+using Messenger.Resources.Tools.Connection;
+using Messenger.Resources.Tools.Data;
 
 namespace Messenger.Resources.View;
 

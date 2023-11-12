@@ -11,7 +11,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Messenger.Resources.Connection;
+namespace Messenger.Resources.Tools.Connection;
 
 public static class NetworkAssistance
 {

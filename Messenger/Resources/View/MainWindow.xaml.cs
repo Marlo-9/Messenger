@@ -12,7 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-using Messenger.Resources.Data;
+using Messenger.Resources.Tools.Data;
 using Wpf.Ui.Controls;
 
 namespace Messenger.Resources.View

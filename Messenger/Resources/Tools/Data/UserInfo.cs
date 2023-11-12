@@ -1,8 +1,8 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Messenger.Resources.Connection;
+using Messenger.Resources.Tools.Connection;
 
-namespace Messenger.Resources.Data;
+namespace Messenger.Resources.Tools.Data;
 
 [Serializable]
 public partial class UserInfo : ObservableObject
@@ -31,6 +31,11 @@ public partial class UserInfo : ObservableObject
     public override string ToString()
     {
         return "UserName:" + _name + ";UserId:" + _id;
+    }
+
+    public string ToLog()
+    {
+        return "\nUser.Id = " + Id + "\nUser.Name = " + Name;
     }
 
     public static UserInfo Parse(string? userInfo)

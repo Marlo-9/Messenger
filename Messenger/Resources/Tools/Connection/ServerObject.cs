@@ -6,9 +6,10 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
-using Messenger.Resources.Data;
+using Messenger.Resources.Tools.Data;
+using static Messenger.Resources.Tools.Additional.Logging;
 
-namespace Messenger.Resources.Connection;
+namespace Messenger.Resources.Tools.Connection;
 
 class ServerObject
 {
@@ -41,7 +42,7 @@ class ServerObject
         try
         {
             tcpListener.Start();
-            Console.WriteLine("Сервер запущен. Ожидание подключений...");
+            await LogAsync("Server started " + tcpListener.LocalEndpoint);
  
             while (true)
             {
@@ -67,7 +68,7 @@ class ServerObject
         {
             if (client.Id == message.RecipientId)
             {
-                await client.Writer.WriteLineAsync(message.ToString());
+                await client.Writer.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.Message, message.ToString()));
                 await client.Writer.FlushAsync();
                 
                 return;
@@ -114,12 +115,14 @@ class ServerObject
         }
         
     }
-    protected internal void Disconnect()
+    protected internal async void Disconnect()
     {
         foreach (var client in clients)
             client.Close();
         
         tcpListener.Stop();
+
+        await LogAsync("Server close");
     }
 }
 
