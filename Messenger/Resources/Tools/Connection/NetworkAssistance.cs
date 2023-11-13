@@ -10,6 +10,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Messenger.Resources.Tools.Additional;
+using Messenger.Resources.Tools.Data;
+using Messenger.Resources.Tools.Enums;
 
 namespace Messenger.Resources.Tools.Connection;
 
@@ -71,8 +74,6 @@ public static class NetworkAssistance
             StreamReader? reader = null;
             StreamWriter? writer = null;
             
-            Console.WriteLine(checkIp.ToString());
-         
             try
             {
                 await client.ConnectAsync(checkIp, port).WaitAsync(TimeSpan.FromSeconds(2));
@@ -84,28 +85,28 @@ public static class NetworkAssistance
                 await writer.WriteLineAsync(GetKey());
             
                 string? answer = await reader.ReadLineAsync();
-                MessageType answerType = GetMessageType(answer);
+                NetworkMessageType answerType = answer.GetMessageType();
 
-                if (answerType == MessageType.Null)
+                switch (answerType)
                 {
-                    writer?.Close();
-                    reader?.Close();
-                    throw new Exception("Un correct server answer");
-                }
-                
-                if (answerType == MessageType.SuccessConnect)
-                {
-                    await writer.WriteLineAsync(SetMessageType(MessageType.CheckClient));
+                    case NetworkMessageType.Null:
+                        writer?.Close();
+                        reader?.Close();
+                        
+                        throw new Exception("Un correct server answer");
                     
-                    writer?.Close();
-                    reader?.Close();
+                    case NetworkMessageType.SuccessConnect:
+                        await writer.WriteLineAsync("".SetMessageType(NetworkMessageType.CheckClient));
                     
-                    return checkIp;
+                        writer?.Close();
+                        reader?.Close();
+                    
+                        return checkIp;
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                Logging.GetInstance().Log(ex.Message);
             }
         
             writer?.Close();
@@ -113,21 +114,6 @@ public static class NetworkAssistance
         }
 
         return null;
-    }
-
-    public static string SetMessageType(MessageType type, string message = "")
-    {
-        return "{" + type + "}" + message;
-    }
-
-    public static MessageType GetMessageType(string? message)
-    {
-        if (!(!string.IsNullOrEmpty(message) &&
-              message.Contains('{')&& message.Contains('}') && 
-              message.IndexOf('{') < message.IndexOf('}')))
-            return MessageType.Null;
-        
-        return Enum.Parse<MessageType>(message.Substring(1, message.IndexOf('}') - 1));
     }
     
     public static async Task ConnectAsync(this TcpClient tcpClient, string? host, int port, CancellationToken cancellationToken) {
@@ -159,38 +145,4 @@ public static class NetworkAssistance
         }
     }
     
-    /*public static async Task<T> RunTask<T>(Task<T> task, int timeout = 0, CancellationToken cancellationToken = default)
-    {
-        await RunTask((Task)task, timeout, cancellationToken);
-        return await task;
-    }
-    
-    public static async Task RunTask(Task task, int timeout = 0, CancellationToken cancellationToken = default)
-    {
-        if (timeout == 0) timeout = -1;
-
-        var timeoutTask = Task.Delay(timeout, cancellationToken);
-        await Task.WhenAny(task, timeoutTask);
-
-        cancellationToken.ThrowIfCancellationRequested();
-        if (timeoutTask.IsCompleted)
-            throw new TimeoutException();
-
-        await task;
-    }*/
-}
-
-public enum MessageType
-{
-    Null,
-    Key,
-    SystemClient,
-    UserClient,
-    CheckClient,
-    NewClient,
-    RemoveClient,
-    SetClientId,
-    SuccessConnect,
-    CloseConnect,
-    Message,
 }

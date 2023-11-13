@@ -35,7 +35,7 @@ public partial class UserInfo : ObservableObject
 
     public string ToLog()
     {
-        return "\nUser.Id = " + Id + "\nUser.Name = " + Name;
+        return "User.Id = " + Id + "\nUser.Name = " + Name;
     }
 
     public static UserInfo Parse(string? userInfo)

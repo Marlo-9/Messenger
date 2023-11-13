@@ -6,8 +6,9 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using Messenger.Resources.Tools.Additional;
 using Messenger.Resources.Tools.Data;
-using static Messenger.Resources.Tools.Additional.Logging;
+using Messenger.Resources.Tools.Enums;
 
 namespace Messenger.Resources.Tools.Connection;
 
@@ -42,7 +43,7 @@ class ServerObject
         try
         {
             tcpListener.Start();
-            await LogAsync("Server started " + tcpListener.LocalEndpoint);
+            Logging.GetInstance().Log("Server started " + tcpListener.LocalEndpoint);
  
             while (true)
             {
@@ -50,12 +51,13 @@ class ServerObject
  
                 ClientObject clientObject = new ClientObject(tcpClient, this);
                 clients.Add(clientObject);
+                
                 Task.Run(clientObject.ProcessAsync);
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            Logging.GetInstance().Log("(" + nameof(ServerObject) + ") " + ex.Message);
         }
         finally
         {
@@ -66,55 +68,56 @@ class ServerObject
     {
         foreach (var client in clients)
         {
-            if (client.Id == message.RecipientId)
-            {
-                await client.Writer.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.Message, message.ToString()));
-                await client.Writer.FlushAsync();
+            if (client.Id != message.Info.RecipientId) continue;
+            
+            await client.Writer.WriteLineAsync(message.ToJsonString().SetMessageType(NetworkMessageType.Message));
+            await client.Writer.FlushAsync();
                 
-                return;
-            }
+            return;
         }
     }
     
-    protected internal async Task ChangeUsers(UserInfo info, bool isNewUser = true)
+    protected internal async Task AddUser(UserInfo info)
     {
-        if (isNewUser)
+        Logging.GetInstance().Log("Add online user\n" + info.ToLog());
+
+        ClientObject newClient = null;
+
+        foreach (var client in clients)
+            if (client.User.Id == info.Id)
+                newClient = client;
+
+        foreach (var client in clients)
         {
-            Console.WriteLine("New client: " + info.Name);
-
-            ClientObject newClient = null;
-
-            foreach (var client in clients)
-                if (client.User.Id == info.Id)
-                    newClient = client;
-
-            foreach (var client in clients)
+            if (client.User.Id != info.Id)
             {
-                if (client.User.Id != info.Id)
-                {
-                    await client.Writer.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.NewClient, info.ToString()));
-                    await newClient?.Writer.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.NewClient, client.User.ToString()))!;
-                }
-                else
-                    await client.Writer.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.SetClientId, info.ToString()));
-            
-                await client.Writer.FlushAsync();
+                await client.Writer.WriteLineAsync(info.ToString().SetMessageType(NetworkMessageType.NewClient));
+                await newClient?.Writer.WriteLineAsync(client.User.ToString().SetMessageType(NetworkMessageType.NewClient))!;
             }
-        }
-        else
-        {
-            Console.WriteLine("Remove client: " + info.Name);
-
-            foreach (var client in clients)
-            {
-                if (client.User.Id != info.Id)
-                    await client.Writer.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.RemoveClient, info.ToString()));
+            else
+                await client.Writer.WriteLineAsync(info.ToString().SetMessageType(NetworkMessageType.SetClientId));
             
-                await client.Writer.FlushAsync();
-            }
+            await client.Writer.FlushAsync();
         }
-        
     }
+    
+    protected internal async Task RemoveUser(UserInfo info)
+    {
+        foreach (var client in clients)
+        {
+            if (client.User.Id != info.Id)
+            {
+                await client.Writer.WriteLineAsync(info.ToString().SetMessageType(NetworkMessageType.RemoveClient));
+                
+                RemoveConnection(info.Id);
+                
+                Logging.GetInstance().Log("Remove online user\n" + info.ToLog());
+            }
+            
+            await client.Writer.FlushAsync();
+        }
+    }
+    
     protected internal async void Disconnect()
     {
         foreach (var client in clients)
@@ -122,7 +125,7 @@ class ServerObject
         
         tcpListener.Stop();
 
-        await LogAsync("Server close");
+        Logging.GetInstance().Log("Server close");
     }
 }
 

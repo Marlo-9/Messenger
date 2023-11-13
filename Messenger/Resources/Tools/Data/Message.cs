@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.Json.Serialization;
 using System.Windows;
 using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -9,70 +10,48 @@ namespace Messenger.Resources.Tools.Data;
 
 public partial class Message : ObservableObject
 {
+    [JsonIgnore]
+    [ObservableProperty] private object _content;
     [ObservableProperty] private string _text;
-    [ObservableProperty] private string _recipientId;
-    [ObservableProperty] private DateTime _sendTime;
-    [ObservableProperty] private MessageStatus _sendStatus;
+    [ObservableProperty] private MessageInfo _info;
     [ObservableProperty] private ControlAppearance _controlAppearance;
-
-    public string Id { get; } = Guid.NewGuid().ToString();
-    public static string Title = "Message"; 
 
     public Message()
     {
-        Id = Guid.NewGuid().ToString();
+        _info = new MessageInfo();
     }
 
-    public Message(string text, DateTime sendTime, MessageStatus status)
+    public Message(string text, MessageInfo info)
     {
         _text = text;
-        _sendTime = sendTime;
-        _sendStatus = status;
+        _info = info;
     }
 
-    public Message(string text)
+    public Message(object content, MessageInfo info)
+    {
+        _content = content;
+        _info = info;
+    }
+
+    public Message(string text, string recipientId)
     {
         _text = text;
-        _sendTime = DateTime.Now;
-        _sendStatus = MessageStatus.Ship;
+
+        _info = new MessageInfo(recipientId);
     }
 
-    public Message(string recipientId, string text)
+    public Message(string text, string recipientId, DateTime sendTime)
     {
-        _recipientId = recipientId;
         _text = text;
-        _sendTime = DateTime.Now;
-        _sendStatus = MessageStatus.Ship;
+
+        _info = new MessageInfo(recipientId, sendTime);
     }
-    
-    private Message(string id, string recipientId, string text, DateTime sendTime, MessageStatus status)
+
+    public Message(string text, string recipientId, DateTime sendTime, MessageStatus sendStatus)
     {
-        Id = id;
-        _recipientId = recipientId;
         _text = text;
-        _sendTime = sendTime;
-        _sendStatus = status;
-    }
 
-    public static Message Parse(string message)
-    {
-        string[] values = message.Split(';');
-
-        return new Message(GetValue(values[0]), 
-            GetValue(values[1]),
-            GetValue(values[2]),
-            DateTime.Parse(GetValue(values[3]).Replace('/', ':')), 
-            Enum.Parse<MessageStatus>(GetValue(values[4])));
-    }
-
-    private static string GetValue(string text)
-    {
-        return text.Split(':')[1];
-    }
-
-    public override string ToString()
-    {
-        return "Id:" + Id + ";RecipientId:" + _recipientId + ";Text:" + _text + ";SendTime:" + _sendTime.ToString().Replace(':', '/') + ";SendStatus:" + _sendStatus;
+        _info = new MessageInfo(recipientId, sendTime, sendStatus);
     }
 }
 

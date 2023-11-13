@@ -4,7 +4,9 @@ using System.IO;
 using System.Net.Sockets;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading.Tasks;
+using Messenger.Resources.Tools.Additional;
 using Messenger.Resources.Tools.Data;
+using Messenger.Resources.Tools.Enums;
 
 namespace Messenger.Resources.Tools.Connection;
 
@@ -41,18 +43,18 @@ class ClientObject
             if (answer is null || !NetworkAssistance.CheckKey(answer))
                 throw new Exception("Uncorrect Key");
 
-            await Writer.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.SuccessConnect));
+            await Writer.WriteLineAsync("".SetMessageType(NetworkMessageType.SuccessConnect));
             await Writer.FlushAsync();
 
             answer = await Reader.ReadLineAsync();
 
-            switch (NetworkAssistance.GetMessageType(answer))
+            switch (answer.GetMessageType())
             {
-                case MessageType.CheckClient:
+                case NetworkMessageType.CheckClient:
                     server.RemoveConnection(Id);
                     Close();
                     return;
-                case MessageType.SystemClient:
+                case NetworkMessageType.SystemClient:
                     User.Type = UserType.System;
                     break;
             }
@@ -60,25 +62,24 @@ class ClientObject
             answer = await Reader.ReadLineAsync();
             User.Name = answer!;
 
-            Task.Delay(100);            
-            await server.ChangeUsers(User);
+            await server.AddUser(User);
             
             while (client.Connected)
             {
                 try
                 {
                     answer = await Reader.ReadLineAsync();
-                    if (answer == null) continue;
+                    if (string.IsNullOrEmpty(answer)) continue;
                     
-                    switch (NetworkAssistance.GetMessageType(answer))
+                    switch (answer.GetMessageType())
                     {
-                        case MessageType.CloseConnect:
-                            await server.ChangeUsers(User, false);
-                            server.RemoveConnection(User.Id);
+                        case NetworkMessageType.CloseConnect:
+                            await server.RemoveUser(User);
                             Close();
                             return;
-                        case MessageType.Message:
-                            await server.BroadcastMessageAsync(User.Id, Message.Parse(answer));
+                        case NetworkMessageType.Message:
+                            Console.WriteLine(answer.FromJsonString<Message>());
+                            await server.BroadcastMessageAsync(User.Id, answer.FromJsonString<Message>());
                             break;
                         default:
                             Console.WriteLine(answer);
@@ -87,15 +88,19 @@ class ClientObject
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e.Message);
-                    await server.ChangeUsers(User, false);
+                    Logging.GetInstance().Log(e.Message);
+                    
+                    await server.RemoveUser(User);
+                    Close();
+                    throw e;
                     break;
                 }
             }
         }
         catch (Exception e)
         {
-            Console.WriteLine(e.Message);
+            Logging.GetInstance().Log(e.Message);
+            throw e;
         }
         finally
         {
@@ -107,5 +112,7 @@ class ClientObject
         Writer.Close();
         Reader.Close();
         client.Close();
+        
+        Logging.GetInstance().Log("User client closed\n" + User.ToLog());
     }
 }

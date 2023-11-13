@@ -13,7 +13,7 @@ using Wpf.Ui.Controls;
 
 namespace Messenger.Resources.ViewModel;
 
-public partial class ChatVM : ObservableObject
+public partial class ChatVm : ObservableObject
 {
     [ObservableProperty] private UserInfo _user;
     [ObservableProperty] private string _messageText;
@@ -21,15 +21,15 @@ public partial class ChatVM : ObservableObject
 
     private SettingsVm _settingsVm;
 
-    public ChatVM() {}
+    public ChatVm() {}
     
-    public ChatVM(UserInfo userRecipient, SettingsVm settingsVm)
+    public ChatVm(UserInfo userRecipient, SettingsVm settingsVm)
     {
         User = userRecipient;
         _settingsVm = settingsVm;
         _settingsVm.NewMessage += message =>
         {
-            if (!_settingsVm.User.Id.Equals(message.RecipientId)) return;
+            if (!_settingsVm.User.Id.Equals(message.Info.RecipientId)) return;
 
             message.ControlAppearance = ControlAppearance.Secondary;
             
@@ -42,8 +42,8 @@ public partial class ChatVM : ObservableObject
     [RelayCommand]
     private void SendMessage(object obj)
     {
-        TextBox senderTextBox = obj as TextBox;
-        Message message = new Message(_user.Id, senderTextBox.Text);
+        TextBox? senderTextBox = obj as TextBox;
+        Message message = new Message(senderTextBox!.Text, User.Id);
         
         _settingsVm.SendMessage(message);
         message.ControlAppearance = ControlAppearance.Primary;

@@ -20,7 +20,7 @@ namespace Messenger
                 DataContext = mainVm
             };
             
-            window.Closed += (_, _) => Logging.EndSession();
+            window.Closed += (_, _) => Logging.GetInstance().EndSession();
             
             window.ShowDialog();
         }

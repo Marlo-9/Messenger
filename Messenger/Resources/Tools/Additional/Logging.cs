@@ -1,19 +1,39 @@
 ﻿using System;
+using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Messenger.Resources.Tools.Additional;
 
-public static class Logging
+public class Logging
 {
-    private static bool _isStarted = false;
-    private static string _session;
-    private static string _sessionPath;
-    private static string _fileExtension = "log";
+    private string _session;
+    private string _sessionPath;
+    private string _fileExtension = "log";
 
-    public static async void StartSession()
+    private BlockingCollection<string> _blockingCollection = new BlockingCollection<string>();
+    private StreamWriter _streamWriter = null;
+    private Task _task = null;
+    
+    public bool IsRun { get; private set; } = false;
+
+    private static Logging _logging = null;
+
+    public static Logging GetInstance()
+    {
+        return _logging ??= new Logging();
+    }
+
+    private Logging()
+    {
+        
+    }
+
+    public void StartSession()
     {
         var dir = @"Logs\" + DateTime.Today.Date.ToString(CultureInfo.CurrentCulture).Split(' ')[0];
         
@@ -22,58 +42,112 @@ public static class Logging
         
         if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
 
-        File.Create(_sessionPath).Close();
-
-        _isStarted = true;
+        _streamWriter = new StreamWriter(File.Create(_sessionPath));
         
-        await LogAsync("Start session");
+        IsRun = true;
+        
+        _task = Task.Run(() =>
+        {
+            while (IsRun)
+                _streamWriter.WriteLine(_blockingCollection.Take());
+        });
+        
+        Log("Start session");
+        //await LogAsync("Start session");
     }
 
-    public static async void EndSessionAsync()
+    /*public async void EndSessionAsync()
     {
         await LogAsync("End session");
-    }
+    }*/
 
-    public static void EndSession()
+    public void EndSession()
     {
         Log("End session");
+
+        IsRun = false;
+        
+        _task.Wait();
+        _task.Dispose();
+        _streamWriter.Close();
+        _streamWriter.Dispose();
     }
 
-    public static async Task LogAsync(string text)
+    public void Log(string text)
     {
-        if (!_isStarted) return;
+        var date = DateTime.Now.TimeOfDay.ToString();
+        var memberFullName = new StackTrace().GetFrame(1).GetMethod().DeclaringType.FullName;
+        var memberClassName = memberFullName.Split('+')[0];
+        var memberMethodName = "";
+
+        if (memberFullName.Split('+').Length >= 2)
+        {
+            memberMethodName = memberFullName.Split('+')[1];
+            memberMethodName = "." +
+                memberMethodName.Substring(memberMethodName.IndexOf('<') + 1, memberMethodName.IndexOf('>') - 1) + "()";
+        }
+        
+        date = "[" + date.Substring(0, date.Length - 4) + "]";
+        text = "\n" + text;
+        text = text.Replace("\n", "\n".PadRight(date.Length + 2));
+
+        if (!string.IsNullOrEmpty(memberFullName))
+            _blockingCollection.Add(date + " (" + memberClassName + memberMethodName + ")" + text);
+        else
+            _blockingCollection.Add(date + " " + text);
+    }
+
+    /*public async Task LogAsync(string text)
+    {
+        if (!IsRun) return;
 
         var date = DateTime.Now.TimeOfDay.ToString();
         
         date = "[" + date.Substring(0, date.Length - 4) + "]";
+        text = text.Replace("\n", "\n".PadRight(date.Length + 2));
+
+        byte[] outBytes = Encoding.Unicode.GetBytes(text);
+
+        await using var sourceStream = new FileStream(_sessionPath, 
+                                                      FileMode.Open, FileAccess.Write, 
+                                                      FileShare.None, 4096, useAsync:true);
+        
+        await sourceStream.WriteAsync(outBytes, 0, outBytes.Length);
 
         //WaitFile();
-        await using var stream = new StreamWriter(_sessionPath, true);
+        /*await using var stream = new StreamWriter(_sessionPath, true);
         
-        text = text.Replace("\n", "\n".PadRight(date.Length + 2));
         
         await stream.WriteLineAsync(date + " " + text);
-        await stream.FlushAsync();
+        await stream.FlushAsync();#1#
     }
 
-    public static void Log(string text)
+    public void Log(string text)
     {
-        if (!_isStarted) return;
+        if (!IsRun) return;
 
         var date = DateTime.Now.TimeOfDay.ToString();
         
         date = "[" + date.Substring(0, date.Length - 4) + "]";
-
-        //WaitFile();
-        using var stream = new StreamWriter(_sessionPath, true);
-        
         text = text.Replace("\n", "\n".PadRight(date.Length + 2));
+
+        byte[] outBytes = Encoding.Unicode.GetBytes(text);
+        
+        using var sourceStream = new FileStream(_sessionPath, 
+                                                FileMode.Open, FileAccess.Write, 
+                                                FileShare.None, 4096, useAsync:true);
+        
+        sourceStream.WriteAsync(outBytes, 0, outBytes.Length);
+        
+        //WaitFile();
+        /*using var stream = new StreamWriter(_sessionPath, true);
+        
         
         stream.WriteLine(date + " " + text);
-        stream.Flush();
+        stream.Flush();#1#
     }
 
-    private static void WaitFile()
+    private void WaitFile()
     {
         var isReady = false;
 
@@ -90,5 +164,5 @@ public static class Logging
                 // ignored
             }
         }
-    }
+    }*/
 }

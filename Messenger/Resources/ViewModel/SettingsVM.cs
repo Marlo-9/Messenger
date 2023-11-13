@@ -13,6 +13,7 @@ using System.Windows.Documents;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Messenger.Resources.Tools.Additional;
 using Messenger.Resources.Tools.Connection;
 using Messenger.Resources.Tools.Data;
 using Messenger.Resources.Tools.Enums;
@@ -93,7 +94,7 @@ public partial class SettingsVm : ObservableObject
             }
             catch (Exception e)
             {
-                Log(e.Message);
+                Logging.GetInstance().Log(e.Message);
             }
         };
     }
@@ -269,7 +270,8 @@ public partial class SettingsVm : ObservableObject
 
     public async void SendMessage(Message message)
     {
-        await Writer?.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.Message, message.ToString()))!;
+        string text = message.ToJsonString().SetMessageType(NetworkMessageType.Message);
+        await Writer?.WriteLineAsync(text)!;
         await Writer?.FlushAsync()!;
     }
 
@@ -312,15 +314,15 @@ public partial class SettingsVm : ObservableObject
         }
         catch (Exception e)
         {
-            Console.WriteLine(e.Message);
+            Logging.GetInstance().Log(e.Message);
 
             try
             {
                 _server?.Disconnect();
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                Console.WriteLine(exception.Message);
+                Logging.GetInstance().Log(ex.Message);
             }
             finally
             {
@@ -335,7 +337,7 @@ public partial class SettingsVm : ObservableObject
     {
         if (IsClientStarted)
         {
-            await Writer?.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.CloseConnect))!;
+            await Writer?.WriteLineAsync("".SetMessageType(NetworkMessageType.CloseConnect))!;
             await Writer?.FlushAsync()!;
             
             Client?.Close();
@@ -399,14 +401,14 @@ public partial class SettingsVm : ObservableObject
                         {
                             try
                             {
-                                await Writer?.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.CloseConnect))!;
+                                await Writer?.WriteLineAsync("".SetMessageType(NetworkMessageType.CloseConnect))!;
                                 await Writer?.FlushAsync()!;
                             
                                 Client?.Close();
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine(e.Message);
+                                Logging.GetInstance().Log(e.Message);
                             }
                             finally
                             {
@@ -427,13 +429,13 @@ public partial class SettingsVm : ObservableObject
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.Message);
+                    Logging.GetInstance().Log(ex.Message);
                 }
             }
         }
         catch (Exception e)
         {
-            Console.WriteLine(e.Message);
+            Logging.GetInstance().Log(e.Message);
         }
          
         async Task StartSystemClient()
@@ -442,17 +444,15 @@ public partial class SettingsVm : ObservableObject
             await Writer.FlushAsync();
             
             string? answer = await Reader.ReadLineAsync();
-            MessageType answerType = NetworkAssistance.GetMessageType(answer);
+            NetworkMessageType answerType = answer.GetMessageType();
             
-            if (answerType == MessageType.Null)
+            if (answerType == NetworkMessageType.Null)
                 throw new Exception("Un correct server answer");
             
-            await Writer.WriteLineAsync(NetworkAssistance.SetMessageType(MessageType.SystemClient));
+            await Writer.WriteLineAsync("".SetMessageType(NetworkMessageType.SystemClient));
             await Writer.FlushAsync();
             await Writer.WriteLineAsync(User.Name);
             await Writer.FlushAsync();
-            
-            Console.WriteLine("Connected S");
             
             await Task.Run(()=>ReceiveMessageAsync(Reader));
         }
@@ -467,21 +467,19 @@ public partial class SettingsVm : ObservableObject
                     
                     if (string.IsNullOrEmpty(message)) continue;
 
-                    MessageType messageType = NetworkAssistance.GetMessageType(message);
-
-                    switch (messageType)
+                    switch (message.GetMessageType())
                     {
-                        case MessageType.NewClient:
+                        case NetworkMessageType.NewClient:
                             AddUser?.Invoke(UserInfo.Parse(message));
                             break;
-                        case MessageType.RemoveClient:
+                        case NetworkMessageType.RemoveClient:
                             RemoveUser?.Invoke(UserInfo.Parse(message));
                             break;
-                        case MessageType.SetClientId:
+                        case NetworkMessageType.SetClientId:
                             User.Id = UserInfo.Parse(message).Id;
                             break;
-                        case MessageType.Message:
-                            NewMessage?.Invoke(Message.Parse(message));
+                        case NetworkMessageType.Message:
+                            NewMessage?.Invoke(message.FromJsonString<Message>());
                             break;
                         default:
                             Console.WriteLine("Message: " + message);
@@ -490,7 +488,7 @@ public partial class SettingsVm : ObservableObject
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e.Message);
+                    Logging.GetInstance().Log(e.Message);
                     break;
                 }
             }

@@ -4,9 +4,10 @@ using System.Windows;
 using System.Windows.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Messenger.Resources.Tools.Additional;
 using Messenger.Resources.Tools.Data;
+using Messenger.Resources.Tools.Enums;
 using Messenger.Resources.View;
-using static Messenger.Resources.Tools.Additional.Logging;
 
 namespace Messenger.Resources.ViewModel;
 
@@ -17,33 +18,29 @@ public partial class MainWindowVm : ObservableObject
     [ObservableProperty] private ObservableCollection<UserInfo> _onlineUsers = new ObservableCollection<UserInfo>();
 
     private readonly ChatPage _chatPage = new ChatPage();
-    private readonly ObservableCollection<ChatVM> _chatVMs = new ObservableCollection<ChatVM>();
+    private readonly ObservableCollection<ChatVm> _chatVMs = new ObservableCollection<ChatVm>();
 
     public MainWindowVm()
     {
-        //StartSession();
+        Logging.GetInstance().StartSession();
         
-        SettingsVm.GetInstance().AddUser += async (user) =>
+        SettingsVm.GetInstance().AddUser += (user) =>
         {
-            await LogAsync("Add online user" + user.ToLog());
-
             Application.Current.Dispatcher.BeginInvoke(
                 new Action(() =>
                 {
                     OnlineUsers.Add(user);
-                    _chatVMs.Add(new ChatVM(user, SettingsVm.GetInstance()));
+                    _chatVMs.Add(new ChatVm(user, SettingsVm.GetInstance()));
                 })
             );
         };
         
-        SettingsVm.GetInstance().RemoveUser += async (user) =>
+        SettingsVm.GetInstance().RemoveUser += (user) =>
         {
-            await LogAsync("Remove online user" + user.ToLog());
-
             Application.Current.Dispatcher.BeginInvoke(
                 new Action(() =>
                 {
-                    if (CurrentPage.DataContext is ChatVM dataContext)
+                    if (CurrentPage.DataContext is ChatVm dataContext)
                         if (dataContext.User.Id.Equals(user.Id))
                             CurrentPage = new SettingsPage() { DataContext = SettingsVm.GetInstance() };
                     
@@ -77,7 +74,7 @@ public partial class MainWindowVm : ObservableObject
     [RelayCommand]
     private void OpenSettings()
     {
-        Log("Open settings page");
+        Logging.GetInstance().Log("Open settings page");
         
         CurrentPage = new SettingsPage()
         {
@@ -96,7 +93,7 @@ public partial class MainWindowVm : ObservableObject
             
             _chatPage.DataContext = chatVm;
             CurrentPage = _chatPage;
-            Log("Open user page" + user.ToLog());
+            Logging.GetInstance().Log("Open user page" + user.ToLog());
             
             return;
         }

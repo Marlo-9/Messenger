@@ -7,7 +7,7 @@
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:view="clr-namespace:Messenger.Resources.ViewModel"
       Title="ChatPage"
-      d:DataContext="{d:DesignInstance view:ChatVM}"
+      d:DataContext="{d:DesignInstance view:ChatVm}"
       mc:Ignorable="d">
 
     <Grid>
